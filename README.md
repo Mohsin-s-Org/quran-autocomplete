@@ -28,8 +28,10 @@ The call of truth belongs to Allah (13:14).
 
 ### After: English quote block
 
+With **Keep typed reference** disabled, which is the default:
+
 ```markdown
-The call of truth belongs to Allah (13:14).
+The call of truth belongs to Allah.
 
 > To Him [alone] is the supplication of truth...
 >
@@ -39,7 +41,7 @@ The call of truth belongs to Allah (13:14).
 ### After: Arabic and English quote block
 
 ```markdown
-The call of truth belongs to Allah (13:14).
+The call of truth belongs to Allah.
 
 > <div class="quran-quote-arabic" dir="rtl" lang="ar">لَهُۥ دَعْوَةُ ٱلْحَقِّ...</div>
 >
@@ -48,20 +50,29 @@ The call of truth belongs to Allah (13:14).
 > (Qur’an 13:14 · Sahih International)
 ```
 
+Enable **Keep typed reference** to leave `(13:14)` in the original paragraph.
+
 ### After: inline
 
 With inline layout enabled, the parenthesized trigger is replaced directly. Inline text can be plain, italic, or bold; italic is the default:
 
 ```markdown
-The call of truth belongs to Allah To Him [alone] is the supplication of truth... (Qur’an 13:14 · Sahih International).
+The call of truth belongs to Allah <em class="quran-quote-inline-emphasis">To Him [alone] is the supplication of truth... (Qur’an 13:14 · Sahih International)</em>.
 ```
 
-The README examples are shortened for display. The plugin inserts the complete text returned for the selected translation and ayah range.
+The examples are shortened for display. The plugin inserts the complete text returned for the selected translation and ayah range.
 
+## Trigger removal and Undo
 
-## Trigger removal and undo
+For quote-block layout, **Keep typed reference** is disabled by default. A trigger-only paragraph such as:
 
-For quote-block layout, **Keep typed reference** is disabled by default. A trigger-only line such as `(24:30–31)` is removed completely, so the generated quote begins at the quote block. The paragraph replacement is atomic, meaning one Undo removes the generated passage and restores the original trigger without reinserting it.
+```markdown
+(24:30–31)
+```
+
+is removed completely, so the generated output begins with the quote block rather than leaving the reference above it.
+
+The paragraph replacement is atomic. One Undo removes the entire generated passage and restores the original text. Restoring a reference through Undo does not immediately trigger another insertion.
 
 ## Auto-closing parentheses are supported
 
@@ -77,11 +88,9 @@ The cursor remains between them. Type the reference and then type `)` as normal:
 (13:14)
 ```
 
-CodeMirror may move the cursor over the existing closing parenthesis instead of inserting another character. The plugin listens for that action as well as normal editor changes. Both paths pass through one deduplication registry, so the same reference cannot be fetched or inserted twice.
+CodeMirror may move the cursor over the existing closing parenthesis instead of inserting another character. The plugin handles that action as well as ordinary text insertion. Both paths use the same deduplication registry, so the same reference cannot be fetched or inserted twice.
 
 ## Output options
-
-The settings combine two independent choices.
 
 ### Content
 
@@ -93,27 +102,34 @@ The settings combine two independent choices.
 - Quote block beneath the paragraph
 - Inline replacement at the trigger position
 
-For quote-block layout, a setting controls whether the original typed reference such as `(13:14)` remains in the sentence. When disabled, the plugin removes the trigger cleanly without leaving incorrect spacing before punctuation.
+### Inline emphasis
+
+- Plain
+- Italic
+- Bold
+
+For quote-block layout, **Keep typed reference** controls whether the original reference remains in the paragraph.
 
 ## Installation
 
 ### Manual installation
 
-Download `main.js`, `manifest.json`, and `styles.css` from the latest GitHub release and place them directly in:
+1. Open the latest GitHub release.
+2. Download these three assets:
+   - `main.js`
+   - `manifest.json`
+   - `styles.css`
+3. Create this folder inside the vault when it does not already exist:
 
-```text
-<Vault>/.obsidian/plugins/quran-quote/
-```
+   ```text
+   <Vault>/.obsidian/plugins/quran-quote/
+   ```
 
-Restart Obsidian, then enable **Quran Autocomplete** under **Settings → Community plugins**. Official Obsidian releases contain only the three supported plugin assets.
+4. Place all three downloaded files directly inside that folder.
+5. Restart or reload Obsidian.
+6. Open **Settings → Community plugins** and enable **Quran Autocomplete**.
 
-Advanced users can instead download these three assets from the same release:
-
-- `main.js`
-- `manifest.json`
-- `styles.css`
-
-Place all three directly inside `<Vault>/.obsidian/plugins/quran-quote/`.
+Official releases contain only the three assets supported by Obsidian. Do not use GitHub's automatically generated source-code archives as the plugin installation package.
 
 ### Community Plugins directory
 
@@ -123,23 +139,22 @@ After the plugin is accepted into Obsidian's Community Plugins directory, it can
 
 Open **Settings → Community plugins → Quran Autocomplete**.
 
-Available settings:
+Available settings include:
 
-- Enable or disable automatic insertion.
-- Enable or disable the parenthesized-reference trigger.
-- Content: English only, or Arabic followed by English.
-- Layout: quote block beneath the paragraph, or inline replacement.
-- Inline emphasis: plain, italic, or bold.
-- Keep or remove the original typed reference when using quote-block layout.
-- Undo removes the generated passage in one step and does not immediately insert it again.
-- English translation: Sahih International, Pickthall, Yusuf Ali, or Muhammad Asad.
-- Show or hide Arabic and English verse numbers.
-- Show or hide the translation credit.
-- Show or hide the English surah name.
+- Automatic insertion
+- Parenthesized-reference detection
+- English-only or Arabic-and-English content
+- Quote-block or inline layout
+- Keep or remove the typed reference
+- Plain, italic, or bold inline emphasis
+- Sahih International, Pickthall, Yusuf Ali, or Muhammad Asad translation
+- Arabic and English verse numbers
+- Translation credit
+- English surah name
 
 ## Manual command
 
-The automatic trigger is optional. You can also:
+Automatic detection is optional. You can also:
 
 1. Select `13:14` or `20:12-13` in a note.
 2. Open the Command Palette.
@@ -147,9 +162,7 @@ The automatic trigger is optional. You can also:
 
 Running the command without a selection opens a reference-entry dialog. The ribbon book icon provides the same behaviour.
 
-The command uses the same content, translation, citation, and layout settings. It replaces the selected reference with the generated output.
-
-## Development installation
+## Development
 
 ```bash
 git clone https://github.com/mohsinosman/quran-autocomplete.git
@@ -158,14 +171,12 @@ npm ci
 npm run check
 ```
 
-Copy the generated `main.js`, `manifest.json`, and `styles.css` into the `quran-quote` folder in a test vault.
-
-## Development commands
+Development commands:
 
 ```bash
 npm run build   # Compile TypeScript and update main.js
 npm test        # Run parser, formatting, auto-pair, removal, and deduplication tests
-npm run check   # Build and run the full test suite
+npm run check   # Build and run the complete test suite
 npm run dev     # Watch TypeScript during development
 ```
 
@@ -174,9 +185,10 @@ npm run dev     # Watch TypeScript during development
 1. The plugin checks text ending at the cursor after the cursor moves past `)`.
 2. The text inside the nearest matching parentheses must be a valid reference such as `13:14` or `20:12-13`.
 3. A keydown listener handles Obsidian's auto-closing-parenthesis behaviour.
-4. The normal editor-change listener handles ordinary text insertion.
-5. A per-editor registry blocks duplicate events while the API request is pending and remembers completed triggers while they remain unchanged.
-6. Before inserting anything, the plugin confirms that the original trigger still exists in the same place. If it was edited while the request was loading, the note is left untouched.
+4. The normal editor-change listener handles ordinary insertion.
+5. A per-editor registry blocks duplicate events while the API request is pending.
+6. Before inserting anything, the plugin confirms that the original trigger remains unchanged.
+7. Undo and redo events temporarily suppress automatic detection so restored text is not immediately processed again.
 
 ## Data and privacy
 

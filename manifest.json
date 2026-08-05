@@ -1,8 +1,8 @@
 {
   "id": "quran-quote",
   "name": "Quran Autocomplete",
-  "version": "0.5.2",
-  "minAppVersion": "1.4.0",
+  "version": "0.5.3",
+  "minAppVersion": "1.13.0",
   "description": "Detect parenthesized Quran references and insert configurable Arabic and English passages inline or as quote blocks.",
   "author": "Mohsin Osman",
   "isDesktopOnly": false

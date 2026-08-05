@@ -6,6 +6,7 @@ import {
   Notice,
   Plugin,
   PluginSettingTab,
+  Setting,
   SettingDefinitionItem,
   requestUrl,
   RequestUrlResponse,

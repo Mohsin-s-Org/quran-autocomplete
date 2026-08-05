@@ -11,7 +11,6 @@ on:
       - styles.css
       - scripts/**
       - tsconfig.json
-      - types/**
       - tests/**
       - test-stubs/**
       - .github/workflows/release.yml
@@ -19,6 +18,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 concurrency:
   group: release
@@ -37,6 +38,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: node --check main.js
       - name: Validate versions
         shell: bash
         run: |
@@ -47,18 +49,18 @@ jobs:
             exit 1
           fi
           echo "VERSION=$MANIFEST_VERSION" >> "$GITHUB_ENV"
-      - name: Build ready-to-install ZIP
-        shell: bash
-        run: |
-          PLUGIN_ID=$(node -p "require('./manifest.json').id")
-          ARCHIVE="quran-autocomplete-$VERSION.zip"
-          mkdir -p "release/$PLUGIN_ID"
-          cp main.js manifest.json styles.css "release/$PLUGIN_ID/"
-          (
-            cd release
-            zip -r "../$ARCHIVE" "$PLUGIN_ID"
-          )
-          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+      - name: Attest main.js
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: main.js
+      - name: Attest manifest.json
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: manifest.json
+      - name: Attest styles.css
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: styles.css
       - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,9 +69,7 @@ jobs:
           NOTES=$(cat <<'EOF'
           Quran Autocomplete for Obsidian.
 
-          For the easiest manual installation, download the versioned ZIP asset, extract it, and copy the included `quran-quote` folder into your vault's `.obsidian/plugins/` folder.
-
-          Obsidian's Community Plugins installer uses the individual `main.js`, `manifest.json`, and `styles.css` assets.
+          Download `main.js`, `manifest.json`, and `styles.css` for manual installation. Obsidian uses these same three files for Community Plugins installation.
           EOF
           )
 
@@ -86,5 +86,4 @@ jobs:
             main.js \
             manifest.json \
             styles.css \
-            "$ARCHIVE" \
             --clobber

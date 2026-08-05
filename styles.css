@@ -1,0 +1,23 @@
+.quran-quote-arabic,
+.quran-quote-arabic-inline {
+  font-family: "Noto Naskh Arabic", "Noto Sans Arabic", "Amiri", serif;
+  unicode-bidi: isolate;
+}
+
+.quran-quote-arabic {
+  margin: 0.35em 0;
+  font-size: 1.35em;
+  line-height: 2;
+  text-align: right;
+}
+
+.quran-quote-arabic-inline {
+  font-size: 1.15em;
+  line-height: 1.8;
+}
+
+.quran-quote-verse-number {
+  white-space: nowrap;
+  font-size: 0.82em;
+  opacity: 0.82;
+}

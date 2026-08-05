@@ -1,0 +1,25 @@
+{
+  "name": "quran-autocomplete-obsidian",
+  "version": "0.5.0",
+  "description": "An Obsidian plugin that detects Qur'an references and inserts configurable Arabic and English passages.",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-build.mjs",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "test": "node tests/reference.test.cjs",
+    "check": "npm run build && npm test"
+  },
+  "keywords": [
+    "obsidian",
+    "quran",
+    "ayah",
+    "autocomplete",
+    "markdown"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "obsidian": "latest",
+    "typescript": "^5.8.3"
+  }
+}

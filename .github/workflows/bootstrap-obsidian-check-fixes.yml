@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - fix/obsidian-check-warnings
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   apply-and-verify:
+    if: github.event_name == 'push' || github.head_ref == 'fix/obsidian-check-warnings'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

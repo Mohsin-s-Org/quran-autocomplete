@@ -1,6 +1,6 @@
 {
   "name": "quran-autocomplete-obsidian",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "An Obsidian plugin that detects Qur'an references and inserts configurable Arabic and English passages.",
   "main": "main.js",
   "scripts": {

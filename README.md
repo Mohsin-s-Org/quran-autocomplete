@@ -50,7 +50,7 @@ The call of truth belongs to Allah (13:14).
 
 ### After: inline
 
-With inline layout enabled, the parenthesized trigger is replaced directly:
+With inline layout enabled, the parenthesized trigger is replaced directly. Inline text can be plain, italic, or bold; italic is the default:
 
 ```markdown
 The call of truth belongs to Allah To Him [alone] is the supplication of truth... (Qur’an 13:14 · Sahih International).
@@ -100,7 +100,7 @@ For quote-block layout, a setting controls whether the original typed reference 
 3. Under **Assets**, download the versioned file named like:
 
    ```text
-   quran-autocomplete-0.5.0.zip
+   quran-autocomplete-0.5.1.zip
    ```
 
 4. Extract the ZIP. It contains this ready-to-install folder:
@@ -157,7 +157,9 @@ Available settings:
 - Enable or disable the parenthesized-reference trigger.
 - Content: English only, or Arabic followed by English.
 - Layout: quote block beneath the paragraph, or inline replacement.
+- Inline emphasis: plain, italic, or bold.
 - Keep or remove the original typed reference when using quote-block layout.
+- Undo removes the generated passage in one step and does not immediately insert it again.
 - English translation: Sahih International, Pickthall, Yusuf Ali, or Muhammad Asad.
 - Show or hide Arabic and English verse numbers.
 - Show or hide the translation credit.

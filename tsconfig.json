@@ -8,8 +8,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "build",
-    "rootDir": "src",
-    "types": []
+    "rootDir": "src"
   },
-  "include": ["src/**/*.ts", "types/**/*.d.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }

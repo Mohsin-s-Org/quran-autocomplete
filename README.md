@@ -58,6 +58,11 @@ The call of truth belongs to Allah To Him [alone] is the supplication of truth..
 
 The README examples are shortened for display. The plugin inserts the complete text returned for the selected translation and ayah range.
 
+
+## Trigger removal and undo
+
+For quote-block layout, **Keep typed reference** is disabled by default. A trigger-only line such as `(24:30–31)` is removed completely, so the generated quote begins at the quote block. The paragraph replacement is atomic, meaning one Undo removes the generated passage and restores the original trigger without reinserting it.
+
 ## Auto-closing parentheses are supported
 
 Obsidian normally creates both parentheses when you type `(`:
@@ -92,48 +97,15 @@ For quote-block layout, a setting controls whether the original typed reference 
 
 ## Installation
 
-### Easiest manual installation
+### Manual installation
 
-1. Open the repository's **Releases** page:
-   `https://github.com/mohsinosman/quran-autocomplete/releases`
-2. Open the latest release.
-3. Under **Assets**, download the versioned file named like:
+Download `main.js`, `manifest.json`, and `styles.css` from the latest GitHub release and place them directly in:
 
-   ```text
-   quran-autocomplete-0.5.1.zip
-   ```
+```text
+<Vault>/.obsidian/plugins/quran-quote/
+```
 
-4. Extract the ZIP. It contains this ready-to-install folder:
-
-   ```text
-   quran-quote/
-   ├── main.js
-   ├── manifest.json
-   └── styles.css
-   ```
-
-5. Copy the entire `quran-quote` folder into:
-
-   ```text
-   <Vault>/.obsidian/plugins/
-   ```
-
-   The final layout should be:
-
-   ```text
-   <Vault>/.obsidian/plugins/quran-quote/main.js
-   <Vault>/.obsidian/plugins/quran-quote/manifest.json
-   <Vault>/.obsidian/plugins/quran-quote/styles.css
-   ```
-
-6. Restart Obsidian, or reload the app.
-7. Open **Settings → Community plugins** and enable **Quran Autocomplete**.
-
-> Do not download GitHub's automatically generated **Source code (zip)** file for installation. Download the versioned `quran-autocomplete-<version>.zip` asset instead.
-
-The folder is named `quran-quote` because that is the plugin's stable ID.
-
-### Install individual release files
+Restart Obsidian, then enable **Quran Autocomplete** under **Settings → Community plugins**. Official Obsidian releases contain only the three supported plugin assets.
 
 Advanced users can instead download these three assets from the same release:
 

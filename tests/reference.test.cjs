@@ -152,6 +152,15 @@ assert.equal(
   "First line\nThis matters (13:14).\n\n> translated passage",
 );
 
+
+assert.equal(
+  buildBlockquoteParagraphReplacement(
+    ["(24:30–31)"], 0, 0, "(24:30–31)".length, "> passage", false,
+  ),
+  "> passage",
+  "a trigger-only paragraph must be removed completely",
+);
+
 const registry = new AutomaticTriggerRegistry();
 const fingerprint = { line: 0, startCh: 5, endCh: 12, matchedText: "(13:14)" };
 assert.equal(registry.begin("same-trigger"), true);

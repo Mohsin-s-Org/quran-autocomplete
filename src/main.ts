@@ -1,14 +1,15 @@
 import {
   App,
   Editor,
-  EditorPosition,
   MarkdownView,
   Modal,
   Notice,
   Plugin,
   PluginSettingTab,
   Setting,
+  SettingDefinitionItem,
   requestUrl,
+  RequestUrlResponse,
 } from "obsidian";
 
 const API_BASE_URL = "https://api.alquran.cloud/v1";
@@ -25,6 +26,7 @@ export type QuranOutputStyle = "blockquote" | "inline";
 export type InlineEmphasis = "none" | "italic" | "bold";
 
 export interface QuranQuoteSettings {
+  settingsVersion: number;
   arabicEdition: string;
   translationEdition: TranslationEdition;
   contentMode: QuranContentMode;
@@ -70,18 +72,62 @@ const TRANSLATIONS: Record<TranslationEdition, string> = {
 };
 
 const DEFAULT_SETTINGS: QuranQuoteSettings = {
+  settingsVersion: 2,
   arabicEdition: "quran-uthmani",
   translationEdition: "en.sahih",
   contentMode: "arabic-english",
   outputStyle: "blockquote",
   inlineEmphasis: "italic",
-  keepTriggerReference: true,
+  keepTriggerReference: false,
   includeVerseNumbers: true,
   includeTranslationCredit: true,
   includeSurahName: false,
   autoInsertEnabled: true,
   detectParenthesizedReference: true,
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isTranslationEdition(value: unknown): value is TranslationEdition {
+  return typeof value === "string" && value in TRANSLATIONS;
+}
+
+function isContentMode(value: unknown): value is QuranContentMode {
+  return value === "english-only" || value === "arabic-english";
+}
+
+function isOutputStyle(value: unknown): value is QuranOutputStyle {
+  return value === "blockquote" || value === "inline";
+}
+
+function isInlineEmphasis(value: unknown): value is InlineEmphasis {
+  return value === "none" || value === "italic" || value === "bold";
+}
+
+function isApiAyah(value: unknown): value is ApiAyah {
+  return isRecord(value) && typeof value.text === "string" && typeof value.numberInSurah === "number";
+}
+
+function isApiSurah(value: unknown): value is ApiSurah {
+  return (
+    isRecord(value) &&
+    typeof value.number === "number" &&
+    typeof value.englishName === "string" &&
+    Array.isArray(value.ayahs) &&
+    value.ayahs.every(isApiAyah)
+  );
+}
+
+function isApiEnvelope(value: unknown): value is ApiEnvelope {
+  return (
+    isRecord(value) &&
+    typeof value.code === "number" &&
+    typeof value.status === "string" &&
+    (value.data === undefined || isApiSurah(value.data))
+  );
+}
 
 export function parseAyahReference(input: string): AyahReference {
   const normalized = input
@@ -207,7 +253,8 @@ export function buildBlockquoteParagraphReplacement(
     updatedLines[triggerLineIndex] =
       sourceLine.slice(0, removal.startCh) + sourceLine.slice(removal.endCh);
   }
-  return `${updatedLines.join("\n")}\n\n${output}`;
+  const paragraph = updatedLines.join("\n").trimEnd();
+  return paragraph.length > 0 ? `${paragraph}\n\n${output}` : output;
 }
 
 export function formatReference(reference: AyahReference): string {
@@ -442,7 +489,7 @@ export default class QuranQuotePlugin extends Plugin {
     await this.loadSettings();
 
     this.addCommand({
-      id: "insert-quran-quote",
+      id: "insert-passage",
       name: "Insert Qur’an passage",
       editorCallback: (editor: Editor) => {
         const selectedReference = editor.getSelection().trim();
@@ -791,7 +838,7 @@ export default class QuranQuotePlugin extends Plugin {
     const limit = reference.endAyah - reference.startAyah + 1;
     const url = `${API_BASE_URL}/surah/${reference.surah}/${encodeURIComponent(edition)}?offset=${offset}&limit=${limit}`;
 
-    let response: any;
+    let response: RequestUrlResponse;
     try {
       response = await requestUrl({
         url,
@@ -804,8 +851,19 @@ export default class QuranQuotePlugin extends Plugin {
       throw new Error("Could not reach the Qur’an text service. Check your internet connection and try again.");
     }
 
-    const payload = response.json as ApiEnvelope;
-    if (response.status < 200 || response.status >= 300 || payload.code !== 200 || !payload.data) {
+    let payload: unknown;
+    try {
+      payload = JSON.parse(response.text) as unknown;
+    } catch {
+      throw new Error("The Qur’an text service returned an invalid response.");
+    }
+    if (
+      response.status < 200 ||
+      response.status >= 300 ||
+      !isApiEnvelope(payload) ||
+      payload.code !== 200 ||
+      !payload.data
+    ) {
       throw new Error("The Qur’an text service did not return that passage.");
     }
 
@@ -813,8 +871,59 @@ export default class QuranQuotePlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    const saved = (await this.loadData()) as Partial<QuranQuoteSettings> | null;
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, saved ?? {});
+    const loaded: unknown = await this.loadData();
+    const saved = isRecord(loaded) ? loaded : {};
+    const needsRemovalDefaultMigration =
+      typeof saved.settingsVersion !== "number" || saved.settingsVersion < 2;
+
+    this.settings = {
+      settingsVersion: 2,
+      arabicEdition:
+        typeof saved.arabicEdition === "string"
+          ? saved.arabicEdition
+          : DEFAULT_SETTINGS.arabicEdition,
+      translationEdition: isTranslationEdition(saved.translationEdition)
+        ? saved.translationEdition
+        : DEFAULT_SETTINGS.translationEdition,
+      contentMode: isContentMode(saved.contentMode)
+        ? saved.contentMode
+        : DEFAULT_SETTINGS.contentMode,
+      outputStyle: isOutputStyle(saved.outputStyle)
+        ? saved.outputStyle
+        : DEFAULT_SETTINGS.outputStyle,
+      inlineEmphasis: isInlineEmphasis(saved.inlineEmphasis)
+        ? saved.inlineEmphasis
+        : DEFAULT_SETTINGS.inlineEmphasis,
+      keepTriggerReference: needsRemovalDefaultMigration
+        ? false
+        : typeof saved.keepTriggerReference === "boolean"
+          ? saved.keepTriggerReference
+          : DEFAULT_SETTINGS.keepTriggerReference,
+      includeVerseNumbers:
+        typeof saved.includeVerseNumbers === "boolean"
+          ? saved.includeVerseNumbers
+          : DEFAULT_SETTINGS.includeVerseNumbers,
+      includeTranslationCredit:
+        typeof saved.includeTranslationCredit === "boolean"
+          ? saved.includeTranslationCredit
+          : DEFAULT_SETTINGS.includeTranslationCredit,
+      includeSurahName:
+        typeof saved.includeSurahName === "boolean"
+          ? saved.includeSurahName
+          : DEFAULT_SETTINGS.includeSurahName,
+      autoInsertEnabled:
+        typeof saved.autoInsertEnabled === "boolean"
+          ? saved.autoInsertEnabled
+          : DEFAULT_SETTINGS.autoInsertEnabled,
+      detectParenthesizedReference:
+        typeof saved.detectParenthesizedReference === "boolean"
+          ? saved.detectParenthesizedReference
+          : DEFAULT_SETTINGS.detectParenthesizedReference,
+    };
+
+    if (needsRemovalDefaultMigration) {
+      await this.saveSettings();
+    }
   }
 
   async saveSettings(): Promise<void> {
@@ -830,11 +939,90 @@ class QuranQuoteSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return [
+      {
+        name: "Automatic insertion",
+        desc: "Detect a completed Quran reference inside parentheses while you type.",
+        control: { type: "toggle" as const, key: "autoInsertEnabled" },
+      },
+      {
+        name: "Parenthesized reference trigger",
+        desc: "Type (13:14) or (20:12-13) anywhere in a sentence or paragraph.",
+        control: { type: "toggle" as const, key: "detectParenthesizedReference" },
+      },
+      {
+        name: "Content",
+        desc: "Choose English only or Arabic followed by English.",
+        control: {
+          type: "dropdown" as const,
+          key: "contentMode",
+          defaultValue: "arabic-english",
+          options: {
+            "english-only": "English + Quran reference",
+            "arabic-english": "Arabic + English + Quran reference",
+          },
+        },
+      },
+      {
+        name: "Layout",
+        desc: "Insert a quote block beneath the paragraph or replace the trigger inline.",
+        control: {
+          type: "dropdown" as const,
+          key: "outputStyle",
+          defaultValue: "blockquote",
+          options: {
+            blockquote: "Quote block beneath paragraph",
+            inline: "Inline at the trigger position",
+          },
+        },
+      },
+      {
+        name: "Keep typed reference",
+        desc: "Keep the original (13:14) in the paragraph. Disabled by default.",
+        control: { type: "toggle" as const, key: "keepTriggerReference" },
+      },
+      {
+        name: "Inline emphasis",
+        desc: "Make inline passages plain, italic, or bold.",
+        control: {
+          type: "dropdown" as const,
+          key: "inlineEmphasis",
+          defaultValue: "italic",
+          options: { none: "Plain", italic: "Italic", bold: "Bold" },
+        },
+      },
+      {
+        name: "English translation",
+        desc: "Choose the English translation used in generated passages.",
+        control: {
+          type: "dropdown" as const,
+          key: "translationEdition",
+          defaultValue: "en.sahih",
+          options: TRANSLATIONS,
+        },
+      },
+      {
+        name: "Show verse numbers",
+        desc: "Append Arabic verse markers and number English verses in a range.",
+        control: { type: "toggle" as const, key: "includeVerseNumbers" },
+      },
+      {
+        name: "Show translation credit",
+        desc: "Add the selected translator to the formatted Quran reference.",
+        control: { type: "toggle" as const, key: "includeTranslationCredit" },
+      },
+      {
+        name: "Show surah name",
+        desc: "Add the English surah name to the formatted Quran reference.",
+        control: { type: "toggle" as const, key: "includeSurahName" },
+      },
+    ];
+  }
+
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-
-    containerEl.createEl("h2", { text: "Qur’an Autocomplete settings" });
 
     new Setting(containerEl)
       .setName("Automatic insertion")

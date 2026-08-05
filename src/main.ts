@@ -22,12 +22,14 @@ export interface AyahReference {
 type TranslationEdition = "en.sahih" | "en.pickthall" | "en.yusufali" | "en.asad";
 export type QuranContentMode = "english-only" | "arabic-english";
 export type QuranOutputStyle = "blockquote" | "inline";
+export type InlineEmphasis = "none" | "italic" | "bold";
 
 export interface QuranQuoteSettings {
   arabicEdition: string;
   translationEdition: TranslationEdition;
   contentMode: QuranContentMode;
   outputStyle: QuranOutputStyle;
+  inlineEmphasis: InlineEmphasis;
   keepTriggerReference: boolean;
   includeVerseNumbers: boolean;
   includeTranslationCredit: boolean;
@@ -72,6 +74,7 @@ const DEFAULT_SETTINGS: QuranQuoteSettings = {
   translationEdition: "en.sahih",
   contentMode: "arabic-english",
   outputStyle: "blockquote",
+  inlineEmphasis: "italic",
   keepTriggerReference: true,
   includeVerseNumbers: true,
   includeTranslationCredit: true,
@@ -185,6 +188,28 @@ export function getTriggerRemovalRange(
   return { startCh: Math.max(0, start), endCh: Math.min(line.length, end) };
 }
 
+/** Build one atomic paragraph replacement so trigger removal and quote insertion undo together. */
+export function buildBlockquoteParagraphReplacement(
+  paragraphLines: string[],
+  triggerLineIndex: number,
+  triggerStartCh: number,
+  triggerEndCh: number,
+  output: string,
+  keepTriggerReference: boolean,
+): string {
+  const updatedLines = [...paragraphLines];
+  if (!keepTriggerReference) {
+    const sourceLine = updatedLines[triggerLineIndex];
+    if (sourceLine === undefined) {
+      throw new Error("The trigger line is outside the paragraph.");
+    }
+    const removal = getTriggerRemovalRange(sourceLine, triggerStartCh, triggerEndCh);
+    updatedLines[triggerLineIndex] =
+      sourceLine.slice(0, removal.startCh) + sourceLine.slice(removal.endCh);
+  }
+  return `${updatedLines.join("\n")}\n\n${output}`;
+}
+
 export function formatReference(reference: AyahReference): string {
   return reference.startAyah === reference.endAyah
     ? `${reference.surah}:${reference.startAyah}`
@@ -242,6 +267,14 @@ function formatArabicAyahs(ayahs: QuoteAyah[], settings: QuranQuoteSettings): st
   });
 }
 
+export function applyInlineEmphasis(value: string, emphasis: InlineEmphasis): string {
+  if (emphasis === "none") {
+    return value;
+  }
+  const tag = emphasis === "bold" ? "strong" : "em";
+  return `<${tag} class="quran-quote-inline-emphasis">${value}</${tag}>`;
+}
+
 export function formatQuranOutput(
   reference: AyahReference,
   ayahs: QuoteAyah[],
@@ -249,18 +282,24 @@ export function formatQuranOutput(
   settings: QuranQuoteSettings,
 ): string {
   const citation = `(${buildCitation(reference, surahName, settings)})`;
-  const english = formatEnglishAyahs(ayahs, settings);
 
   if (settings.outputStyle === "inline") {
-    const englishInline = english.join(" ");
-    if (settings.contentMode === "english-only") {
-      return `${englishInline} ${citation}`;
-    }
-
-    const arabicInline = formatArabicAyahs(ayahs, settings).join(" ");
-    return `<span class="quran-quote-arabic-inline" dir="rtl" lang="ar">${arabicInline}</span> — ${englishInline} ${citation}`;
+    const showEnglishVerseNumber = settings.includeVerseNumbers && ayahs.length > 1;
+    const englishInline = ayahs
+      .map((ayah) => {
+        const number = showEnglishVerseNumber ? `${ayah.number}. ` : "";
+        return `${number}${escapeHtml(ayah.english.replace(/\r?\n/g, " ").trim())}`;
+      })
+      .join(" ");
+    const citationInline = escapeHtml(citation);
+    const inlineOutput =
+      settings.contentMode === "english-only"
+        ? `${englishInline} ${citationInline}`
+        : `<span class="quran-quote-arabic-inline" dir="rtl" lang="ar">${formatArabicAyahs(ayahs, settings).join(" ")}</span> — ${englishInline} ${citationInline}`;
+    return applyInlineEmphasis(inlineOutput, settings.inlineEmphasis);
   }
 
+  const english = formatEnglishAyahs(ayahs, settings);
   const lines: string[] = [];
   if (settings.contentMode === "arabic-english") {
     const arabic = formatArabicAyahs(ayahs, settings);
@@ -296,6 +335,11 @@ interface TriggerFingerprint {
   startCh: number;
   endCh: number;
   matchedText: string;
+}
+
+interface UndoGuard {
+  key: string;
+  fingerprint: TriggerFingerprint;
 }
 
 /**
@@ -392,6 +436,7 @@ export default class QuranQuotePlugin extends Plugin {
   private readonly autoInsertInProgress = new WeakSet<Editor>();
   private readonly triggerRegistries = new WeakMap<Editor, AutomaticTriggerRegistry>();
   private readonly suppressAutoInsertUntil = new WeakMap<Editor, number>();
+  private readonly undoGuards = new WeakMap<Editor, UndoGuard>();
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -442,9 +487,21 @@ export default class QuranQuotePlugin extends Plugin {
     // this safe even when editor-change fires as well.
     this.registerDomEvent(document, "keydown", (event: KeyboardEvent) => {
       const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.closest(".cm-editor")) {
+        return;
+      }
+      const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+      const isUndo =
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        event.key.toLowerCase() === "z";
+      if (isUndo) {
+        if (view) {
+          this.suppressAutomaticInsertion(view.editor, 1500);
+        }
+        return;
+      }
       if (
-        !(target instanceof HTMLElement) ||
-        !target.closest(".cm-editor") ||
         event.key !== ")" ||
         event.defaultPrevented ||
         event.ctrlKey ||
@@ -454,13 +511,26 @@ export default class QuranQuotePlugin extends Plugin {
       ) {
         return;
       }
-
       window.setTimeout(() => {
-        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
         if (view) {
           this.queueAutoInsert(view.editor, 0);
         }
       }, 0);
+    });
+
+    this.registerDomEvent(document, "beforeinput", (event: InputEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof HTMLElement) ||
+        !target.closest(".cm-editor") ||
+        (event.inputType !== "historyUndo" && event.inputType !== "historyRedo")
+      ) {
+        return;
+      }
+      const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+      if (view) {
+        this.suppressAutomaticInsertion(view.editor, 1500);
+      }
     });
 
     this.addSettingTab(new QuranQuoteSettingTab(this.app, this));
@@ -480,8 +550,42 @@ export default class QuranQuotePlugin extends Plugin {
     return registry;
   }
 
+  private suppressAutomaticInsertion(editor: Editor, durationMs: number): void {
+    const existingTimer = this.autoInsertTimers.get(editor);
+    if (existingTimer !== undefined) {
+      window.clearTimeout(existingTimer);
+      this.autoInsertTimers.delete(editor);
+    }
+    this.suppressAutoInsertUntil.set(editor, Date.now() + durationMs);
+  }
+
+  private consumeUndoGuard(editor: Editor): boolean {
+    const guard = this.undoGuards.get(editor);
+    if (!guard) {
+      return false;
+    }
+    const { fingerprint } = guard;
+    if (fingerprint.line >= editor.lineCount()) {
+      return false;
+    }
+    const restored = editor.getRange(
+      { line: fingerprint.line, ch: fingerprint.startCh },
+      { line: fingerprint.line, ch: fingerprint.endCh },
+    );
+    if (restored !== fingerprint.matchedText) {
+      return false;
+    }
+    this.registryFor(editor).complete(guard.key, fingerprint);
+    this.undoGuards.delete(editor);
+    this.suppressAutomaticInsertion(editor, 1000);
+    return true;
+  }
+
   private queueAutoInsert(editor: Editor, delay: number): void {
     if (!this.settings.autoInsertEnabled || this.autoInsertInProgress.has(editor)) {
+      return;
+    }
+    if (this.consumeUndoGuard(editor)) {
       return;
     }
     if ((this.suppressAutoInsertUntil.get(editor) ?? 0) > Date.now()) {
@@ -543,11 +647,15 @@ export default class QuranQuotePlugin extends Plugin {
     };
 
     const inserted = await this.performAutomaticInsertion(editor, match, fingerprint);
-    if (inserted && this.settings.outputStyle === "blockquote" && this.settings.keepTriggerReference) {
+    if (!inserted) {
+      registry.cancel(key);
+      return;
+    }
+    if (this.settings.outputStyle === "blockquote" && this.settings.keepTriggerReference) {
       registry.complete(key, fingerprint);
     } else {
-      // Inline output and removed triggers no longer exist at the source range.
       registry.cancel(key);
+      this.undoGuards.set(editor, { key, fingerprint });
     }
   }
 
@@ -578,30 +686,26 @@ export default class QuranQuotePlugin extends Plugin {
         return true;
       }
 
+      const paragraphStartLine = this.findParagraphStartLine(editor, fingerprint.line);
       const paragraphEndLine = this.findParagraphEndLine(editor, fingerprint.line);
-      const paragraphEndCh = editor.getLine(paragraphEndLine).length;
+      const paragraphLines: string[] = [];
+      for (let line = paragraphStartLine; line <= paragraphEndLine; line += 1) {
+        paragraphLines.push(editor.getLine(line));
+      }
+      const replacement = buildBlockquoteParagraphReplacement(
+        paragraphLines,
+        fingerprint.line - paragraphStartLine,
+        fingerprint.startCh,
+        fingerprint.endCh,
+        output,
+        this.settings.keepTriggerReference,
+      );
       editor.replaceRange(
-        `\n\n${output}`,
-        { line: paragraphEndLine, ch: paragraphEndCh },
-        undefined,
+        replacement,
+        { line: paragraphStartLine, ch: 0 },
+        { line: paragraphEndLine, ch: editor.getLine(paragraphEndLine).length },
         "quran-quote-auto",
       );
-
-      if (!this.settings.keepTriggerReference) {
-        const currentSourceLine = editor.getLine(fingerprint.line);
-        const removal = getTriggerRemovalRange(
-          currentSourceLine,
-          fingerprint.startCh,
-          fingerprint.endCh,
-        );
-        editor.replaceRange(
-          "",
-          { line: fingerprint.line, ch: removal.startCh },
-          { line: fingerprint.line, ch: removal.endCh },
-          "quran-quote-auto",
-        );
-      }
-
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "The Qur’an passage could not be inserted.";
@@ -610,6 +714,18 @@ export default class QuranQuotePlugin extends Plugin {
     } finally {
       this.autoInsertInProgress.delete(editor);
     }
+  }
+
+  private findParagraphStartLine(editor: Editor, startLine: number): number {
+    let paragraphStartLine = startLine;
+    while (paragraphStartLine > 0) {
+      const previousLine = editor.getLine(paragraphStartLine - 1);
+      if (previousLine.trim() === "") {
+        break;
+      }
+      paragraphStartLine -= 1;
+    }
+    return paragraphStartLine;
   }
 
   private findParagraphEndLine(editor: Editor, startLine: number): number {
@@ -787,6 +903,19 @@ class QuranQuoteSettingTab extends PluginSettingTab {
       new Setting(containerEl)
         .setName("Inline trigger replacement")
         .setDesc("Inline layout replaces the typed parenthesized trigger with the generated passage and its formatted Qur’an reference.");
+      new Setting(containerEl)
+        .setName("Inline emphasis")
+        .setDesc("Make inline passages stand out using plain text, italics, or bold text.")
+        .addDropdown((dropdown) => {
+          dropdown.addOption("none", "Plain");
+          dropdown.addOption("italic", "Italic");
+          dropdown.addOption("bold", "Bold");
+          dropdown.setValue(this.plugin.settings.inlineEmphasis);
+          dropdown.onChange(async (value: string) => {
+            this.plugin.settings.inlineEmphasis = value as InlineEmphasis;
+            await this.plugin.saveSettings();
+          });
+        });
     }
 
     new Setting(containerEl)

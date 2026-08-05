@@ -12,6 +12,8 @@ Module._resolveFilename = function (request, parent, isMain, options) {
 
 const {
   AutomaticTriggerRegistry,
+  applyInlineEmphasis,
+  buildBlockquoteParagraphReplacement,
   parseAyahReference,
   formatReference,
   formatQuranOutput,
@@ -24,6 +26,7 @@ const baseSettings = {
   translationEdition: "en.sahih",
   contentMode: "arabic-english",
   outputStyle: "blockquote",
+  inlineEmphasis: "italic",
   keepTriggerReference: true,
   includeVerseNumbers: true,
   includeTranslationCredit: true,
@@ -122,17 +125,32 @@ const englishInline = formatQuranOutput(reference, ayahs, "Taa-Haa", {
 });
 assert.equal(
   englishInline,
-  "**12.** English one **13.** English two (Qur’an 20:12–13 · Taa-Haa · Sahih International)",
+  '<em class="quran-quote-inline-emphasis">12. English one 13. English two (Qur’an 20:12–13 · Taa-Haa · Sahih International)</em>',
 );
 
 const arabicEnglishInline = formatQuranOutput(reference, ayahs, "Taa-Haa", {
   ...baseSettings,
   outputStyle: "inline",
 });
-assert.match(arabicEnglishInline, /^<span class="quran-quote-arabic-inline"/);
+assert.match(arabicEnglishInline, /^<em class="quran-quote-inline-emphasis"><span class="quran-quote-arabic-inline"/);
 assert.match(arabicEnglishInline, /ARABIC ONE/);
-assert.match(arabicEnglishInline, /— \*\*12\.\*\* English one/);
-assert.match(arabicEnglishInline, /\(Qur’an 20:12–13 · Taa-Haa · Sahih International\)$/);
+assert.match(arabicEnglishInline, /— 12\. English one/);
+assert.match(arabicEnglishInline, /\(Qur’an 20:12–13 · Taa-Haa · Sahih International\)<\/em>$/);
+
+assert.equal(applyInlineEmphasis("passage", "none"), "passage");
+assert.equal(applyInlineEmphasis("passage", "italic"), '<em class="quran-quote-inline-emphasis">passage</em>');
+assert.equal(applyInlineEmphasis("passage", "bold"), '<strong class="quran-quote-inline-emphasis">passage</strong>');
+
+const atomicReplacement = buildBlockquoteParagraphReplacement(
+  ["This matters (13:14)."], 0, 13, 20, "> translated passage", false,
+);
+assert.equal(atomicReplacement, "This matters.\n\n> translated passage");
+assert.equal(
+  buildBlockquoteParagraphReplacement(
+    ["First line", "This matters (13:14)."], 1, 13, 20, "> translated passage", true,
+  ),
+  "First line\nThis matters (13:14).\n\n> translated passage",
+);
 
 const registry = new AutomaticTriggerRegistry();
 const fingerprint = { line: 0, startCh: 5, endCh: 12, matchedText: "(13:14)" };

@@ -6,37 +6,9 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-review-fixes:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/review-cleanup-trigger-removal'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: agent/review-cleanup-trigger-removal
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: python3 .github/scripts/run_review_fixes.py
-      - run: npm install
-      - run: npm run check
-      - name: Commit validated fixes when needed
-        shell: bash
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -- .github/workflows/release.yml
-          git add -A
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "Fix trigger removal and community review findings"
-          git push origin HEAD:agent/review-cleanup-trigger-removal
-
   check:
     runs-on: ubuntu-latest
     steps:

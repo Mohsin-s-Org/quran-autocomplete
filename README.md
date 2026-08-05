@@ -31,7 +31,7 @@ The call of truth belongs to Allah (13:14).
 ```markdown
 The call of truth belongs to Allah (13:14).
 
-> To Him alone is the prayer of truth. Those they invoke besides Him do not respond to them in any way—except as one who stretches out their hands to water, asking it to reach their mouths, but it can never do so. The calls of the disbelievers are only in vain.
+> To Him [alone] is the supplication of truth...
 >
 > (Qur’an 13:14 · Sahih International)
 ```
@@ -43,7 +43,7 @@ The call of truth belongs to Allah (13:14).
 
 > <div class="quran-quote-arabic" dir="rtl" lang="ar">لَهُۥ دَعْوَةُ ٱلْحَقِّ...</div>
 >
-> To Him alone is the prayer of truth...
+> To Him [alone] is the supplication of truth...
 >
 > (Qur’an 13:14 · Sahih International)
 ```
@@ -53,10 +53,10 @@ The call of truth belongs to Allah (13:14).
 With inline layout enabled, the parenthesized trigger is replaced directly:
 
 ```markdown
-The call of truth belongs to Allah To Him alone is the prayer of truth... (Qur’an 13:14 · Sahih International).
+The call of truth belongs to Allah To Him [alone] is the supplication of truth... (Qur’an 13:14 · Sahih International).
 ```
 
-The exact wording depends on the selected translation and formatting settings.
+The README examples are shortened for display. The plugin inserts the complete text returned for the selected translation and ayah range.
 
 ## Auto-closing parentheses are supported
 

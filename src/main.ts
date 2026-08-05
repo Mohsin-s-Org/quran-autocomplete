@@ -6,7 +6,6 @@ import {
   Notice,
   Plugin,
   PluginSettingTab,
-  Setting,
   SettingDefinitionItem,
   requestUrl,
   RequestUrlResponse,
@@ -253,7 +252,7 @@ export function buildBlockquoteParagraphReplacement(
     updatedLines[triggerLineIndex] =
       sourceLine.slice(0, removal.startCh) + sourceLine.slice(removal.endCh);
   }
-  const paragraph = updatedLines.join("\n").trimEnd();
+  const paragraph = updatedLines.join("\n").replace(/[\t\n\r ]+$/u, "");
   return paragraph.length > 0 ? `${paragraph}\n\n${output}` : output;
 }
 
@@ -939,7 +938,7 @@ class QuranQuoteSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  getSettingDefinitions(): SettingDefinitionItem[] {
+  override getSettingDefinitions(): SettingDefinitionItem[] {
     return [
       {
         name: "Automatic insertion",
@@ -1018,137 +1017,5 @@ class QuranQuoteSettingTab extends PluginSettingTab {
         control: { type: "toggle" as const, key: "includeSurahName" },
       },
     ];
-  }
-
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-
-    new Setting(containerEl)
-      .setName("Automatic insertion")
-      .setDesc("Detect a completed Qur’an reference inside parentheses while you type.")
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.autoInsertEnabled);
-        toggle.onChange(async (value: boolean) => {
-          this.plugin.settings.autoInsertEnabled = value;
-          await this.plugin.saveSettings();
-          this.display();
-        });
-      });
-
-    if (this.plugin.settings.autoInsertEnabled) {
-      new Setting(containerEl)
-        .setName("Parenthesized reference trigger")
-        .setDesc("Type (13:14) or (20:12-13) anywhere in a sentence or paragraph. Auto-closing parentheses are supported.")
-        .addToggle((toggle) => {
-          toggle.setValue(this.plugin.settings.detectParenthesizedReference);
-          toggle.onChange(async (value: boolean) => {
-            this.plugin.settings.detectParenthesizedReference = value;
-            await this.plugin.saveSettings();
-          });
-        });
-    }
-
-    new Setting(containerEl)
-      .setName("Content")
-      .setDesc("Choose whether the generated passage contains English only or Arabic followed by English.")
-      .addDropdown((dropdown) => {
-        dropdown.addOption("english-only", "English + Qur’an reference");
-        dropdown.addOption("arabic-english", "Arabic + English + Qur’an reference");
-        dropdown.setValue(this.plugin.settings.contentMode);
-        dropdown.onChange(async (value: string) => {
-          this.plugin.settings.contentMode = value as QuranContentMode;
-          await this.plugin.saveSettings();
-        });
-      });
-
-    new Setting(containerEl)
-      .setName("Layout")
-      .setDesc("Insert the passage as a Markdown blockquote beneath the paragraph or replace the trigger inline.")
-      .addDropdown((dropdown) => {
-        dropdown.addOption("blockquote", "Quote block beneath paragraph");
-        dropdown.addOption("inline", "Inline at the trigger position");
-        dropdown.setValue(this.plugin.settings.outputStyle);
-        dropdown.onChange(async (value: string) => {
-          this.plugin.settings.outputStyle = value as QuranOutputStyle;
-          await this.plugin.saveSettings();
-          this.display();
-        });
-      });
-
-    if (this.plugin.settings.outputStyle === "blockquote") {
-      new Setting(containerEl)
-        .setName("Keep typed reference")
-        .setDesc("Keep the original (13:14) in the sentence. Turn this off to remove it after adding the quote block.")
-        .addToggle((toggle) => {
-          toggle.setValue(this.plugin.settings.keepTriggerReference);
-          toggle.onChange(async (value: boolean) => {
-            this.plugin.settings.keepTriggerReference = value;
-            await this.plugin.saveSettings();
-          });
-        });
-    } else {
-      new Setting(containerEl)
-        .setName("Inline trigger replacement")
-        .setDesc("Inline layout replaces the typed parenthesized trigger with the generated passage and its formatted Qur’an reference.");
-      new Setting(containerEl)
-        .setName("Inline emphasis")
-        .setDesc("Make inline passages stand out using plain text, italics, or bold text.")
-        .addDropdown((dropdown) => {
-          dropdown.addOption("none", "Plain");
-          dropdown.addOption("italic", "Italic");
-          dropdown.addOption("bold", "Bold");
-          dropdown.setValue(this.plugin.settings.inlineEmphasis);
-          dropdown.onChange(async (value: string) => {
-            this.plugin.settings.inlineEmphasis = value as InlineEmphasis;
-            await this.plugin.saveSettings();
-          });
-        });
-    }
-
-    new Setting(containerEl)
-      .setName("English translation")
-      .setDesc("Choose the English translation used in the generated passage.")
-      .addDropdown((dropdown) => {
-        Object.entries(TRANSLATIONS).forEach(([id, label]) => dropdown.addOption(id, label));
-        dropdown.setValue(this.plugin.settings.translationEdition);
-        dropdown.onChange(async (value: string) => {
-          this.plugin.settings.translationEdition = value as TranslationEdition;
-          await this.plugin.saveSettings();
-        });
-      });
-
-    new Setting(containerEl)
-      .setName("Show verse numbers")
-      .setDesc("Append Arabic verse markers and number English verses in a range.")
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.includeVerseNumbers);
-        toggle.onChange(async (value: boolean) => {
-          this.plugin.settings.includeVerseNumbers = value;
-          await this.plugin.saveSettings();
-        });
-      });
-
-    new Setting(containerEl)
-      .setName("Show translation credit")
-      .setDesc("Add the selected translator to the formatted Qur’an reference.")
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.includeTranslationCredit);
-        toggle.onChange(async (value: boolean) => {
-          this.plugin.settings.includeTranslationCredit = value;
-          await this.plugin.saveSettings();
-        });
-      });
-
-    new Setting(containerEl)
-      .setName("Show surah name")
-      .setDesc("Add the English surah name to the formatted Qur’an reference.")
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.includeSurahName);
-        toggle.onChange(async (value: boolean) => {
-          this.plugin.settings.includeSurahName = value;
-          await this.plugin.saveSettings();
-        });
-      });
   }
 }

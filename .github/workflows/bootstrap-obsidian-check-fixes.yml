@@ -71,6 +71,53 @@ jobs:
       - run: npm run check
       - run: node --check main.js
 
+      - name: Run official Obsidian lint rules
+        shell: bash
+        run: |
+          npm install --no-save --package-lock=false \
+            @eslint/js@^9.39.4 \
+            eslint@^9.39.4 \
+            eslint-plugin-obsidianmd@^0.4.0 \
+            globals@^17.6.0 \
+            jiti@^2.6.1 \
+            typescript-eslint@^8.59.1
+          cat > eslint.config.mts <<'EOF'
+          import obsidianmd from 'eslint-plugin-obsidianmd';
+          import globals from 'globals';
+          import { globalIgnores, defineConfig } from 'eslint/config';
+
+          export default defineConfig(
+            globalIgnores([
+              'node_modules',
+              'build',
+              'main.js',
+              'scripts',
+              'tests',
+              'package.json',
+              'package-lock.json',
+              'tsconfig.json',
+              'versions.json',
+            ]),
+            {
+              languageOptions: {
+                globals: {
+                  ...globals.browser,
+                },
+                parserOptions: {
+                  projectService: {
+                    allowDefaultProject: ['eslint.config.mts', 'manifest.json'],
+                  },
+                  tsconfigRootDir: import.meta.dirname,
+                  extraFileExtensions: ['.json'],
+                },
+              },
+            },
+            ...obsidianmd.configs.recommended,
+          );
+          EOF
+          npx eslint src/main.ts manifest.json
+          rm eslint.config.mts
+
       - name: Commit verified changes
         shell: bash
         run: |
